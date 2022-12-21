@@ -41,15 +41,15 @@ class Cars:
         rl = self.roadLength
         car_pos = self.x[i]%rl
         cars_in_lane = []
-        vel = []
+        vel = {}
         for ii in range(self.numCars):
             if self.y[ii] == lane:
                 cars_in_lane.append(self.x[ii]%rl)
-                vel.append(self.vmax[ii])
+                vel[self.x[ii]%rl] = self.vmax[ii]
         cars_in_lane = np.array(cars_in_lane)
 
         if cars_in_lane.size == 0:
-            return self.roadLength, self.roadLength, 0, 0
+            return rl, rl, 0
 
         cars_in_lane = np.sort(cars_in_lane)
         j = np.searchsorted(cars_in_lane, car_pos)
@@ -58,21 +58,21 @@ class Cars:
 
         if lane == self.y[i]:
             if cars_in_lane.size == 1:
-                return self.roadLength, self.roadLength, vel[0], vel[0]
+                return rl, rl, vel[cars_in_lane[0]]
             if car_pos == np.max(cars_in_lane):
-                return self.roadLength-(cars_in_lane[-1]-cars_in_lane[0]),car_pos-cars_in_lane[j-1], vel[0], vel[j-1]
+                return rl-(cars_in_lane[-1]-cars_in_lane[0]),car_pos-cars_in_lane[j-1], None
             if car_pos == np.min(cars_in_lane): 
-                return cars_in_lane[j+1]-car_pos, self.roadLength-(cars_in_lane[-1]-cars_in_lane[0]), vel[1], vel[-1]
-            return cars_in_lane[j+1]-car_pos, car_pos-cars_in_lane[j-1], vel[j+1], vel[j-1]
+                return cars_in_lane[j+1]-car_pos, rl-(cars_in_lane[-1]-cars_in_lane[0]), None
+            return cars_in_lane[j+1]-car_pos, car_pos-cars_in_lane[j-1], None
         else: 
             if car_pos >= np.max(cars_in_lane):
-                if car_pos == np.max(cars_in_lane): return 0,0,0,0
-                return self.roadLength-(car_pos-cars_in_lane[0]), car_pos-cars_in_lane[j-1], vel[0], vel[j-1]
+                if car_pos == np.max(cars_in_lane): return 0,0,0
+                return rl-(car_pos-cars_in_lane[0]), car_pos-cars_in_lane[j-1], vel[cars_in_lane[j-1]]
             elif car_pos <= np.min(cars_in_lane): 
-                if car_pos == np.min(cars_in_lane): return 0,0,0,0
-                return cars_in_lane[j]-car_pos, self.roadLength-(cars_in_lane[-1]-car_pos), vel[j], vel[-1]
+                if car_pos == np.min(cars_in_lane): return 0,0,0
+                return cars_in_lane[j]-car_pos, rl-(cars_in_lane[-1]-car_pos), vel[cars_in_lane[-1]]
             else:
-                return cars_in_lane[j]-car_pos, car_pos-cars_in_lane[j-1], vel[j], vel[j-1]
+                return cars_in_lane[j]-car_pos, car_pos-cars_in_lane[j-1], vel[cars_in_lane[j-1]]
             
             
 class Observables:
@@ -121,26 +121,25 @@ class Propagator(BasePropagator) :
                 cars.v[i]+=1
 
         for i in range(cars.numCars):
-            df, db,vf,vb = cars.distance(i, cars.y[i])
+            df,db,vb = cars.distance(i, cars.y[i])
             if cars.y[i] == cars.lanes and cars.v[i]>=df:
                 cars.v[i] = df-1
 
             elif cars.v[i] >= df and cars.y[i] < cars.lanes:
-                d2f, d2b,vf,v2b = cars.distance(i, cars.y[i]+1)
+                d2f, d2b,v2b = cars.distance(i, cars.y[i]+1)
                 if d2f > df and d2b > v2b:
                     cars.y[i] +=1
-                    cars.v[i] = min(d2f-1, cars.vmax[i])
-                else: cars.v[i] = min(df-1, cars.vmax[i])
+                    cars.v[i] = min(d2f-1, cars.v[i])
+                else: cars.v[i] = min(df-1, cars.v[i])
 
             elif cars.v[i] < df and cars.y[i] > 1:
-                d3f, d3b,vf,v3b = cars.distance(i, cars.y[i]-1)
+                d3f, d3b,v3b = cars.distance(i, cars.y[i]-1)
                 if d3f > cars.v[i] and d3b>v3b:
                     cars.y[i] -=1
-        
+            
+
         for i in range(cars.numCars):
-            d,a,b,c = cars.distance(i, cars.y[i])
-            if cars.v[i] >= d:
-                cars.v[i] = d-1
+            assert cars.v[i]<cars.distance(i, cars.y[i])[0]
 
         for i in range(cars.numCars):
             if rng.random() < self.p and cars.v[i] > 0:
@@ -242,4 +241,4 @@ def traffica():
 
 
 
-main()
+traffica()
