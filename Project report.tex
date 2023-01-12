@@ -1,0 +1,73 @@
+\documentclass[a4paper,12pt]{article}
+
+\usepackage{geometry}       % Required for page layout.
+\usepackage{hyperref}       % Required for hyperlinks.
+\usepackage{graphicx}       % Required for figures.
+\usepackage{subfig}         % Required for minipages.
+
+\newgeometry{vmargin={25.4mm}, hmargin={27mm,27mm}}
+\setlength\parindent{0pt}   % Disable paragraph indent.
+
+\title{Cellular automaton traffic model of multilane highway}
+\author{Axel Kierkegaard}
+\usepackage{float}
+\begin{document}
+\maketitle
+
+\section*{Introduction}
+In a world heavily dependent on transportation between different areas, traffic modeling is an essential tool to enable development of correctly dimensioned infrastructure. To avoid traffic congestion on important roads an accurate description of reality is needed so that problems can be addressed beforehand. In this report the goal is to develop a model simulating a multilane highway, and comparing the traffic flow for a different number of lanes. Some of the questions we will investigate are:
+
+\begin{itemize}
+  \item \textbf{How does the road capacity compare for different number of lanes?}
+  This is an important question when a traffic planner needs to use the knowledge of the traffic flow along a specific route to design a road with a sufficient number of lanes to carry that traffic.
+  \item \textbf{For a multilane highway - how does the fraction of cars and flow rate in respective lanes depend on the density of cars?} There are some theories that the passing lanes, supposed to be the fastest moving, are actually slower in heavy traffic.\footnote{Los Angeles Times, https://www.latimes.com/archives/la-xpm-1992-04-13-me-189-story.html}
+  \item \textbf{How does the distribution of velocities of the cars affect the flow rate, for different number of lanes?} The model will use cars with different maximum velocities. It is interesting to investigate how a more widely spread distribution of velocities affect the flowrate, and if the effect is the same for one lane as for several.
+\end{itemize}
+
+Furthermore, we will of course discuss statistical accuracy and discretization issues for the model, however that discussion will be introduced after the model itself has been described.
+
+\section*{Model description}
+There are of course many different ways to implement a model of traffic flow, however here we will use a cellular automaton model using discrete time steps and a number of rules for the cars to follow. 
+
+The system is initialized with a given road length and uses periodic boundary conditions so when a car reaches the end of the road it comes back to the beginning of it (meaning that the road system can be visualized as a circle). We will discuss later on the effect the road length has on the results. Furthermore, a simulation is here created with a fixed number of lanes and cars. This is a simplification since a normal highway has entries and exits for cars joining and leaving the highway, and in Sweden so called 2+1-roads are common where the number of lanes changes between 1 and 2 in each direction. The merges of lanes caused by these designs are often the cause of traffic congestion which is why a more accurate model definitely should take these effects into account.\\ 
+
+Another important part of the model is the velocity distribution. To resemble real-life scenarios, we need the cars to have different maximum speeds. The velocities are approximately normally distributed according to some studies, \footnote{\url{https://www.sciencedirect.com/science/article/pii/S1877705817319318?ref=pdf_download&fr=RR-2&rr=787cc9874e7a991b}} and some swedish investigations have shown that almost 50\% drive too fast on certain roads.\footnote{\url{https://www.vibilagare.se/nyheter/40gata-da-kor-halften-for-fort}} Therefore, we will assume that the maximum speeds of the cars are normally distributed around the maximum velocity of the road. However, since the velocities as well as the positions need to be integers in this discrete model, we will have to round off to the closest integer for each velocity. It is a simplifcation to only allow discrete, integer values for the time, positions and velocities, but the model can still be meaningful.\\ 
+
+Now let us go through the rules of the system, that determines the behavior of the cars. The rules, looped over all cars separately in this order are:
+
+\begin{enumerate}
+	\item If $v_i < v_{i, max}$ then increase the velocity of the car i, $v_i \rightarrow v_i+1$.\\
+	Models the acceleration to the car's maximum velocity.
+	\item Compute the distance from car i to the closest car in front, $d_f$. 
+	\begin{enumerate}
+		\item If car i is in the outermost lane and $v_i \geq d$, then the velocity needs to be reduced $v_i \rightarrow d-1$. 
+		\item If car i is not in the outermost lane and $v_i \geq d$, calculate the distance to the closest car in front ($d_{fl}$) and behind it ($d_{bl}$) in the lane to the left. If $d_{fl}<d_f$ and $d_{bl}>v_{bl}$ car i will switch to the left lane. Here $v_{bl}$ is the velocity of the car behind in the left lane. 
+This means that if there is more space in front in the left lane, and the space to the closest car in the back is bigger than the velocity of that car, car i will switch to that lane. No matter if it switches lanes or not, the velocity is then decreased if it is not smaller than the distance to the closest car in front, as in (a). 
+		\item If car i is not in the innermost lane and $v_i < d$, calculate the distance to the closest car in front ($d_{fr}$) and behind it ($d_{br}$) in the lane to the right. If $d_{fr}>v_i$ and $d_{br} > v_{br}$ car i will switch one lane to the right. This essentially means that if there is enough space in the right lane and safe to switch lanes (no fast car in behind), the car will switch to that lane.
+	\end{enumerate}
+	
+\item With probability p, decrease the velocity of car i, $v_i \rightarrow v_{i-1}$. This is only done when $v_i>0$. 
+\item Update the positions so that $x_i(t+1) = x_i(t) +v_i$
+\end{enumerate}
+
+Let us further discuss these rules. Especially interesting are the rules for lane-changing, since this is quite a complex phenomenon and drivers are generally quite different in their behavior. It is reasonable that a driver switch lane to the left if there is more space there and the driver in front is driving too slow, and that they switch back to the right when there is enough space again. However, a more advanced model should also encompass that a driver can see more than just the distance to the car in front, the (approximated) velocities and cars further ahead are also taken into consideration when driving in real life. At the same time, a model fully implementing these factors as well would require more details of  decision making, sight conditions on the road etc. making the model far too complicated.\\
+
+Another important condition for lane changing to be allowed is that the velocity of the closest car behind in the new lane is smaller than the distance to said car. This essentially means that no car will have to suddenly break because a car moves in front of it from another lane, which may be more of an ideal rather than an exact description of reality. In real life, there are of course some drivers who switch lanes forcing the car behind to break, but allowing cars to switch lanes without "checking behind" would cause nonphysical scenarios. For example, a car with a very low velocity (or even 0) could change lane causing a car behind to break from max speed to 0 in a single time step. To avoid these scenarios checking the car in the back is needed, even if it is not completely realistic that a driver can determine the exact velocity of the car behind.\\
+
+In the third step, we reduce the velocity of a car with a given probability p. Too simulate a highway this probability should be rather low since cars generally try to uphold a constant velocity on highways. Again, the model could be improved by allowing this probability to change for different cars (or different lanes since cars in the passing lanes probably are less likely to break), but fir simplicity we have chosen to not do so in this model.\\
+
+There are of course many more possible improvements for a traffic model, taking into account more complex factors in decision making - such as drivers trying to find an open spot in the right lane if a fast car approaches from behind, drivers slowing down to give another car the chance to enter the lane and so on. However, this model encapsulates the basic behaviors on a multilane highway and mentioned improvements will be left to future investigations. 
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+\end{document}
