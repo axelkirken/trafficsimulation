@@ -8,11 +8,10 @@ import numpy as np
 import statistics
 import matplotlib
 import scipy.stats as st
-import scipy as sc
 
 font = {'family': "DejaVu Sans",
         'weight' : 'normal',
-        'size'   : 22}
+        'size'   : 20}
 plt.rc('font', **font)
 
 
@@ -100,7 +99,7 @@ class Observables:
         self.time = []          # list to store time
         self.flowrate = []      # list to store the flow rate
         self.prop_in_lane = [[],[],[],[],[],[]]
-        #self.flow_in_lane = [[],[],[],[],[],[]]
+        self.flow_in_lane = [[],[],[],[],[],[]]
 
 class BasePropagator:
 
@@ -115,13 +114,13 @@ class BasePropagator:
         obs.flowrate.append(fr)
         for i in range(cars.numLanes):
             n=0
-            #v = []
+            v = []
             for j in range(cars.numCars):
                 if cars.y[j] == i+1: 
                     n+=1
-                    #v.append(cars.v[j])
+                    v.append(cars.v[j])
             obs.prop_in_lane[i].append(n/cars.numCars)
-            #obs.flow_in_lane[i].append(np.mean(v))
+            obs.flow_in_lane[i].append(np.mean(v))
               
     def timestep(self, cars, obs):
         """ Virtual method: implemented by the child classes """
@@ -227,10 +226,10 @@ class Simulation:
 
 
 def main() :
-    numCars=25
-    speedLimit=5
+    numCars=20
+    speedLimit=10
     vmax = normalVelocities(numCars, speedLimit, scale=1)
-    cars = Cars(numCars = numCars, roadLength=50, numLanes=3, vmax=vmax)
+    cars = Cars(numCars = numCars, roadLength=200, numLanes=1, vmax=vmax)
     plt.figure()
     bins = np.arange(1, max(vmax) + 1.5) - 0.5
     plt.hist(vmax, bins=bins, rwidth=0.8)
@@ -238,213 +237,93 @@ def main() :
     sim = Simulation(cars)
     sim.run_animate(propagator=Propagator(p=0.2))
 
-
-def trafficb():
-    density = np.array([])
+    
+def traffica():
+    density = []
     roadLength=50
     speedLimit=5
-    flow = [[],[],[]]
-    for ncars in range(1,3*roadLength,5):
-        density = np.append(density, ncars/roadLength)
-        for i in range(3):
-            if ncars <= (i+1)*roadLength:
-                flowtemp = []
-                for j in range(10):
-                    vmax = normalVelocities(3*roadLength, speedLimit)
-                    cars = Cars(numCars = ncars, roadLength=roadLength, numLanes=i+1, vmax=vmax[:ncars])
-                    sim = Simulation(cars)
-                    sim.run(propagator=Propagator(p=0.2))
-                    flowtemp.append(statistics.mean(sim.obs.flowrate[-100:-1]))
-                flow[i].append(np.mean(flowtemp))
-    
-    SStot = [0,0,0]
+    numLanes=3
+    vmax = normalVelocities(2*roadLength, speedLimit)
+    vel_in_lane = [[],[],[]]
+    prop_in_lane = [[], [], []]
+    for ncars in range(1,int(1.8*roadLength),5):
+        density.append(ncars/roadLength)
+        vel = [[], [], []]
+        prop = [[], [], []]
+        for j in range(10):
+            cars = Cars(numCars = ncars, roadLength=roadLength, vmax=vmax[:ncars], numLanes=numLanes)
+            sim = Simulation(cars)
+            sim.run(propagator=Propagator(p=0.2))
+            for l in range(numLanes):
+                vel[l].append(statistics.mean(sim.obs.flow_in_lane[l][-100:-1]))
+                prop[l].append(statistics.mean(sim.obs.prop_in_lane[l][-100:-1]))
+        for l in range(numLanes):
+            vel_in_lane[l].append(np.mean(vel[l]))
+            prop_in_lane[l].append(np.mean(prop[l]))
+
     plt.figure()
-    colors = ["g", "c", "m"]
-    s=""
-    for i in range(3):
-        mean = np.mean(flow[i])
-        for y in flow[i]:
-            SStot[i]+= (y-mean)**2
-        plt.plot(density[:len(flow[i])], flow[i], colors[i]+".")
-        
-        turnpoint = flow[i].index(max(flow[i]))
-        p, res, _,_,_ = np.polyfit(density[:turnpoint], flow[i][:turnpoint], 1, full=True)
-        p2, res2, _,_,_ = np.polyfit(density[turnpoint:len(flow[i])], flow[i][turnpoint:],1, full=True)
-        plt.plot(density[:turnpoint+1], density[:turnpoint+1]*p[0]+p[1], colors[i]+"--",  label=str(i+1)+" lane"+s)
-        s="s"
-        plt.plot(density[turnpoint-1:len(flow[i])], density[turnpoint-1:len(flow[i])]*p2[0]+p2[1], colors[i]+"--")
-        if res.size==0: res=[0]
-        restot = res[0] + res2[0]
-        print(p, p2)
-        print(1-restot/SStot[i])
-    plt.tight_layout()
+    text = ["1st lane", "2nd lane", "3rd lane"]
+    for l in range(numLanes):
+        plt.plot(density, vel_in_lane[l], linestyle='--', marker='o',label=text[l])
+    plt.xlabel("Density")
+    plt.ylabel("Mean velocity")
     plt.legend()
-    plt.xlabel(r'Density ($ \rho $)')
-    plt.ylabel("Flow rate (q)")
+
+    plt.figure()
+    text = ["1st lane", "2nd lane", "3rd lane"]
+    for l in range(numLanes):
+        plt.plot(density, prop_in_lane[l], linestyle='--', marker='o',label=text[l])
+    plt.xlabel("Density")
+    plt.ylabel("Proportion of cars")
+    plt.legend()
+    
     plt.tight_layout()
     plt.show()
 
-
-def f(x, a,b):
-    return a*x**2+b*x
-
-def trafficb2():
-    density = np.array([])
-    roadLength=50
-    speedLimit=5
-    vmax = normalVelocities(3*roadLength, speedLimit)
-    flow = [[],[],[]]
-    for ncars in range(1,3*roadLength,5):
-        density = np.append(density, ncars/roadLength)
-        for i in range(3):
-            if ncars <= (i+1)*roadLength:
-                flowtemp = []
-                for j in range(10):
-                    cars = Cars(numCars = ncars, roadLength=roadLength, numLanes=i+1, vmax=vmax[:ncars])
-                    sim = Simulation(cars)
-                    sim.run(propagator=Propagator(p=0.2))
-                    flowtemp.append(statistics.mean(sim.obs.flowrate[-100:-1]))
-                flow[i].append(np.mean(flowtemp))
-    
-    SStot = [0,0,0]
-    plt.figure()
-    colors = ["g", "c", "m"]
-    s=""
-    for i in range(3):
-        mean = np.mean(flow[i])
-        for y in flow[i]:
-            SStot[i]+= (y-mean)**2
-        x = density[:len(flow[i])]
-        plt.plot(x, flow[i], colors[i]+".")
-        
-        p, pcov = sc.optimize.curve_fit(f, density[:len(flow[i])], flow[i])
-        print(p)
-        plt.plot(x, f(x, p[0],p[1]), colors[i]+"--", label=str(i+1)+" lane"+s)
-        s="s"
-        res = flow[i]-f(density[:len(flow[i])], p[0],p[1])
-        ss_res = np.sum(res**2)
-        print(1-ss_res/SStot[i])
-    plt.tight_layout()
-    plt.legend()
-    plt.xlabel(r"Density ($\rho$)")
-    plt.ylabel("Flow rate (q)")
-    plt.tight_layout()
-    plt.show()
 
 
 def trafficc():
-    ste = [[], [], []]
+    ste = [[], [],[]]
     N = []
-    roadLength=100
+    roadLength=50
     speedLimit=5
-    
     for n in range(5, 120, 10):
-        flow = [[],[],[]]
+        inlane = [[],[],[]]
         N.append(n)
         for i in range(n):
-            for j in range(1,4):
-                vmax = normalVelocities(roadLength, speedLimit)  
-                cars = Cars(numCars = 20, roadLength=roadLength, vmax=vmax, numLanes=j)
-                sim = Simulation(cars)
-                sim.run(propagator=Propagator(p=0.2))
-                flow[j-1].append(statistics.mean(sim.obs.flowrate[-100:-1]))
-        for j in range(1,4):
-            ste[j-1].append(np.std(flow[j-1])/(n-1)**0.5)
+            vmax = normalVelocities(roadLength, speedLimit)  
+            cars = Cars(numCars = 25, roadLength=50, vmax=vmax, numLanes=2)
+            sim = Simulation(cars)
+            sim.run(propagator=Propagator(p=0.2))
+            inlane[0].append(statistics.mean(sim.obs.prop_in_lane[0][-100:-1]))
+            inlane[1].append(statistics.mean(sim.obs.flow_in_lane[0][-100:-1]))
+            inlane[2].append(statistics.mean(sim.obs.flow_in_lane[1][-100:-1]))
+        ste[0].append(np.std(inlane[0])/(n-1)**0.5)
+        ste[1].append(np.std(inlane[1])/(n-1)**0.5)
+        ste[2].append(np.std(inlane[2])/(n-1)**0.5)
+
+    N = np.array(N)
+    st = np.array(ste[0])
+    st2 = np.array(ste[1])
+    st3 = np.array(ste[2])
     plt.figure()
-    s=""
-    plt.xlabel("N")
-    plt.ylabel(r"$s_{\bar{q}}$")
-    for j in range(1,4):
-        plt.plot(N,ste[j-1],linestyle='--', marker='o', label=str(j)+" lane"+s)
-        s="s"
+    plt.plot(np.log10(N),np.log10(st),linestyle='--', marker='o', label="Proportion")
+    plt.plot(np.log10(N), -0.5*np.log10(N)-1.5, label=r"$kN^{-0.5}$")
+    plt.tight_layout()
+    plt.xlabel("log(N)")
     plt.legend()
+    plt.ylabel("SEM, proportion inner lane")
+
+
     plt.figure()
-    s=""
-    for j in range(1,4):
-        N = np.array(N)
-        st = np.array(ste[j-1])
-        plt.plot(np.log10(N),np.log10(st),linestyle='--', marker='o', label=str(j)+" lane"+s)
-        s="s"
-    plt.plot(np.log10(N), -0.5*np.log10(N)-1.5, linestyle='--', marker='o', label=r"$kN^{-0.5}$")
+    plt.plot(np.log10(N),np.log10(st2),linestyle='--', marker='o', label="Inner lane")
+    plt.plot(np.log10(N),np.log10(st3),linestyle='--', marker='o', label="Outer lane")
+    plt.plot(np.log10(N), -0.5*np.log10(N)-1, label=r"$kN^{-0.5}$")
     plt.legend()
     plt.xlabel("log(N)")
-    plt.ylabel(r"log($s_{\bar{q}}$)")
+    plt.ylabel("SEM, mean velocity")
     plt.tight_layout()
     plt.show()   
 
-
-def trafficd():
-    roadLength=50
-    speedLimit=5
-    vmax = normalVelocities(roadLength, speedLimit)
-    plt.figure()
-    plt.tight_layout()
-    s=""
-    for i in range(1,4):
-        cars = Cars(numCars = 25, roadLength=roadLength, vmax=vmax, numLanes=i)
-        sim = Simulation(cars)
-        sim.run(propagator=Propagator(p=0.2))
-        plt.plot(sim.obs.time, sim.obs.flowrate, label=str(i)+" lane"+s)
-        s="s"
-        print(np.mean(sim.obs.flowrate[-100:-1]), max(sim.obs.flowrate[-100:-1])-min(sim.obs.flowrate[-100:-1]))
-    plt.xlabel("Time")
-    plt.ylabel("Flow rate")
-    plt.legend()
-    plt.show()
-
-
-def traffice():
-    speedLimit=10
-    roadLength=100
-    spread = []
-    flowtot = [[], [], []]
-    for scale in range(0,50,5):
-        spread.append(scale*0.1)
-        for iter in range(20):
-            flow = [[], [], []]
-            for i in range(1,4):
-                vmax = normalVelocities(roadLength, speedLimit=speedLimit, scale=scale*0.1)
-                cars = Cars(numCars = 10, roadLength=roadLength, vmax=vmax, numLanes=i)
-                sim = Simulation(cars)
-                sim.run(propagator=Propagator(p=0.2))
-                flow[i-1].append(statistics.mean(sim.obs.flowrate[-100:-1]))
-        for j in range(3):
-            flowtot[j].append(np.mean(flow[j]))
-    plt.figure()
-    plt.tight_layout()
-    text=" lane"
-    for i in range(1,4):
-        plt.plot(spread, flowtot[i-1],".-", label=str(i) +text)
-        text = " lanes"
-    plt.xlabel("Max velocity standard deviation")
-    plt.ylabel("Flow rate")
-    plt.legend()
-    plt.show()
-
-
-def trafficf():
-    speedLimit=5
-    roadLengths = [10,20,30,40, 50,100,150, 200]
-    plt.figure()
-    plt.tight_layout()
-    for roadLength in roadLengths:
-        density = []
-        flow = []
-        for ncars in range(1,roadLength,int(roadLength/10)):
-            flowtemp = []
-            density.append(ncars/roadLength)
-            for j in range(10):
-                vmax = normalVelocities(200, speedLimit=speedLimit)
-                cars = Cars(numCars = ncars, roadLength=roadLength, vmax=vmax[:ncars], numLanes=2)
-                sim = Simulation(cars)
-                sim.run(propagator=Propagator(p=0.2))
-                flowtemp.append(statistics.mean(sim.obs.flowrate[-100:-1]))
-            flow.append(np.mean(flowtemp))
-        plt.plot(density, flow,"--", label="L="+str(roadLength))
-    plt.xlabel(r"Density ($\rho$)")
-    plt.ylabel("Flow rate (q)")
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
 
 trafficc()
