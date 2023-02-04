@@ -240,13 +240,13 @@ def main() :
     
 def traffica():
     density = []
-    roadLength=50
+    roadLength=100
     speedLimit=5
     numLanes=3
     vmax = normalVelocities(2*roadLength, speedLimit)
     vel_in_lane = [[],[],[]]
     prop_in_lane = [[], [], []]
-    for ncars in range(1,int(1.8*roadLength),5):
+    for ncars in range(1,int(1.8*roadLength),10):
         density.append(ncars/roadLength)
         vel = [[], [], []]
         prop = [[], [], []]
@@ -262,6 +262,7 @@ def traffica():
             prop_in_lane[l].append(np.mean(prop[l]))
 
     plt.figure()
+    plt.grid()
     text = ["1st lane", "2nd lane", "3rd lane"]
     for l in range(numLanes):
         plt.plot(density, vel_in_lane[l], linestyle='--', marker='o',label=text[l])
@@ -270,6 +271,7 @@ def traffica():
     plt.legend()
 
     plt.figure()
+    plt.grid()
     text = ["1st lane", "2nd lane", "3rd lane"]
     for l in range(numLanes):
         plt.plot(density, prop_in_lane[l], linestyle='--', marker='o',label=text[l])
@@ -307,20 +309,22 @@ def trafficc():
     st2 = np.array(ste[1])
     st3 = np.array(ste[2])
     plt.figure()
-    plt.plot(np.log10(N),np.log10(st),linestyle='--', marker='o', label="Proportion")
-    plt.plot(np.log10(N), -0.5*np.log10(N)-1.5, label=r"$kN^{-0.5}$")
+    plt.grid(True, which="Both")
+    plt.loglog(N,st,linestyle='--', marker='o', label="Proportion")
+    plt.loglog(N,10**(-1.5)*N**(-0.5), label=r"$kN^{-0.5}$")
     plt.tight_layout()
-    plt.xlabel("log(N)")
+    plt.xlabel("N")
     plt.legend()
     plt.ylabel("SEM, proportion inner lane")
 
 
     plt.figure()
-    plt.plot(np.log10(N),np.log10(st2),linestyle='--', marker='o', label="Inner lane")
-    plt.plot(np.log10(N),np.log10(st3),linestyle='--', marker='o', label="Outer lane")
-    plt.plot(np.log10(N), -0.5*np.log10(N)-1, label=r"$kN^{-0.5}$")
+    plt.grid(True, which="Both")
+    plt.loglog(N,st2,linestyle='--', marker='o', label="Inner lane")
+    plt.loglog(N,st3,linestyle='--', marker='o', label="Outer lane")
+    plt.loglog(N, 0.1*N**(-0.5), label=r"$kN^{-0.5}$")
     plt.legend()
-    plt.xlabel("log(N)")
+    plt.xlabel("N")
     plt.ylabel("SEM, mean velocity")
     plt.tight_layout()
     plt.show()   
