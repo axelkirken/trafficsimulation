@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "trafficsimulation"
+version = "0.1.0"
+description = ""
+authors = ["axelkirken <axel.kierkegaard@outlook.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+matplotlib = "^3.10.0"
+numpy = "^2.2.3"
+scipy = "^1.15.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
